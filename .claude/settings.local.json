@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__ide__getDiagnostics",
+      "Bash(flutter pub get:*)",
+      "Bash(dir:*)",
+      "Bash(flutter clean:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(git init:*)",
+      "Bash(gh repo create:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
