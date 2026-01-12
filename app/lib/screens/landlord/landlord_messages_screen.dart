@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../constants/theme.dart';
 import '../../widgets/landlord_bottom_nav.dart';
 
@@ -45,30 +46,108 @@ class LandlordMessagesScreen extends StatelessWidget {
   }
 
   Widget _buildMessagesList() {
-    // TODO: Replace with actual messages data
-    final hasMessages = true;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
 
-    if (!hasMessages) {
+    if (userId == null) {
       return _buildEmptyState();
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: 10,
-      itemBuilder: (context, index) {
-        final isUnread = index < 3;
-        return _buildMessageItem(
-          name: 'Tenant ${index + 1}',
-          propertyTitle: 'Property Title',
-          message: index == 0
-              ? 'When can I schedule a viewing?'
-              : 'Last message preview goes here...',
-          time: index == 0 ? '5 min ago' : '${index}h ago',
-          isUnread: isUnread,
-          avatarColor: index % 3 == 0 ? primaryColor : (index % 3 == 1 ? accentColor : yellowColor),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Supabase.instance.client
+          .from('chat_conversations')
+          .stream(primaryKey: ['id'])
+          .eq('landlord_id', userId)
+          .order('last_message_at', ascending: false),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        final conversations = snapshot.data!;
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: conversations.length,
+          itemBuilder: (context, index) {
+            final conversation = conversations[index];
+            final studentId = conversation['student_id'];
+            final houseId = conversation['house_id'];
+            final lastMessage = conversation['last_message_text'] ?? '';
+            final lastMessageAt = conversation['last_message_at'];
+            final unreadCount = conversation['landlord_unread_count'] ?? 0;
+            final isUnread = unreadCount > 0;
+
+            String timeAgo = 'Recently';
+            if (lastMessageAt != null) {
+              final lastMsgTime = DateTime.parse(lastMessageAt);
+              final diff = DateTime.now().difference(lastMsgTime);
+              if (diff.inMinutes < 60) {
+                timeAgo = '${diff.inMinutes} min ago';
+              } else if (diff.inHours < 24) {
+                timeAgo = '${diff.inHours}h ago';
+              } else {
+                timeAgo = '${diff.inDays}d ago';
+              }
+            }
+
+            return FutureBuilder<Map<String, dynamic>>(
+              future: _getConversationDetails(studentId, houseId),
+              builder: (context, detailsSnapshot) {
+                final studentName = detailsSnapshot.data?['student_name'] ?? 'Student';
+                final propertyTitle = detailsSnapshot.data?['property_title'] ?? 'Property';
+                final colors = [primaryColor, accentColor, yellowColor];
+                final avatarColor = colors[index % 3];
+
+                return _buildMessageItem(
+                  name: studentName,
+                  propertyTitle: propertyTitle,
+                  message: lastMessage.isEmpty ? 'No messages yet' : lastMessage,
+                  time: timeAgo,
+                  isUnread: isUnread,
+                  avatarColor: avatarColor,
+                );
+              },
+            );
+          },
         );
       },
     );
+  }
+
+  Future<Map<String, dynamic>> _getConversationDetails(String studentId, String? houseId) async {
+    try {
+      final studentResponse = await Supabase.instance.client
+          .from('user_profiles')
+          .select('first_name, last_name')
+          .eq('id', studentId)
+          .maybeSingle();
+
+      String? propertyTitle;
+      if (houseId != null) {
+        final houseResponse = await Supabase.instance.client
+            .from('houses')
+            .select('title')
+            .eq('id', houseId)
+            .maybeSingle();
+        propertyTitle = houseResponse?['title'];
+      }
+
+      return {
+        'student_name': studentResponse != null
+            ? '${studentResponse['first_name']} ${studentResponse['last_name']}'
+            : 'Student',
+        'property_title': propertyTitle ?? 'General Inquiry',
+      };
+    } catch (e) {
+      return {
+        'student_name': 'Student',
+        'property_title': 'Property',
+      };
+    }
   }
 
   Widget _buildMessageItem({
