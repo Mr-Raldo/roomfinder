@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../constants/theme.dart';
 import '../../widgets/modern_bottom_nav.dart';
 
@@ -45,29 +46,90 @@ class StudentMessagesScreen extends StatelessWidget {
   }
 
   Widget _buildMessagesList() {
-    // TODO: Replace with actual messages data
-    final hasMessages = true;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
 
-    if (!hasMessages) {
+    if (userId == null) {
       return _buildEmptyState();
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: 8,
-      itemBuilder: (context, index) {
-        final isUnread = index < 2;
-        return _buildMessageItem(
-          name: index == 0 ? 'John Smith' : 'Landlord Name $index',
-          message: index == 0
-              ? 'Hi, I\'m interested in viewing the apartment'
-              : 'Last message preview goes here...',
-          time: index == 0 ? '2 min ago' : '${index}h ago',
-          isUnread: isUnread,
-          avatarColor: index % 3 == 0 ? primaryColor : (index % 3 == 1 ? accentColor : redColor),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Supabase.instance.client
+          .from('chat_conversations')
+          .stream(primaryKey: ['id'])
+          .eq('student_id', userId)
+          .order('last_message_at', ascending: false),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        final conversations = snapshot.data!;
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: conversations.length,
+          itemBuilder: (context, index) {
+            final conversation = conversations[index];
+            final landlordId = conversation['landlord_id'];
+            final lastMessage = conversation['last_message_text'] ?? '';
+            final lastMessageAt = conversation['last_message_at'];
+            final unreadCount = conversation['student_unread_count'] ?? 0;
+            final isUnread = unreadCount > 0;
+
+            String timeAgo = 'Recently';
+            if (lastMessageAt != null) {
+              final lastMsgTime = DateTime.parse(lastMessageAt);
+              final diff = DateTime.now().difference(lastMsgTime);
+              if (diff.inMinutes < 60) {
+                timeAgo = '${diff.inMinutes} min ago';
+              } else if (diff.inHours < 24) {
+                timeAgo = '${diff.inHours}h ago';
+              } else {
+                timeAgo = '${diff.inDays}d ago';
+              }
+            }
+
+            return FutureBuilder<String>(
+              future: _getLandlordName(landlordId),
+              builder: (context, landlordSnapshot) {
+                final landlordName = landlordSnapshot.data ?? 'Landlord';
+                final colors = [primaryColor, accentColor, redColor];
+                final avatarColor = colors[index % 3];
+
+                return _buildMessageItem(
+                  name: landlordName,
+                  message: lastMessage.isEmpty ? 'No messages yet' : lastMessage,
+                  time: timeAgo,
+                  isUnread: isUnread,
+                  avatarColor: avatarColor,
+                );
+              },
+            );
+          },
         );
       },
     );
+  }
+
+  Future<String> _getLandlordName(String landlordId) async {
+    try {
+      final landlordResponse = await Supabase.instance.client
+          .from('user_profiles')
+          .select('first_name, last_name')
+          .eq('id', landlordId)
+          .maybeSingle();
+
+      if (landlordResponse != null) {
+        return '${landlordResponse['first_name']} ${landlordResponse['last_name']}';
+      }
+      return 'Landlord';
+    } catch (e) {
+      return 'Landlord';
+    }
   }
 
   Widget _buildMessageItem({
