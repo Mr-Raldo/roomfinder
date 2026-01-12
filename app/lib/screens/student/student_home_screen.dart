@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../constants/theme.dart';
 import '../../controllers/auth_controller.dart';
 import '../../widgets/modern_bottom_nav.dart';
@@ -264,113 +265,243 @@ class StudentHomeScreen extends StatelessWidget {
   }
 
   Widget _buildFeaturedRooms() {
-    return SizedBox(
-      height: 230,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: 5,
-        itemBuilder: (context, index) {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Supabase.instance.client
+          .from('houses')
+          .stream(primaryKey: ['id'])
+          .eq('is_active', true)
+          .order('created_at', ascending: false)
+          .limit(10),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 230,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return Container(
-            width: 280,
-            margin: const EdgeInsets.only(right: 16),
+            height: 230,
             decoration: BoxDecoration(
               color: whiteColor,
               borderRadius: BorderRadius.circular(16),
               boxShadow: softShadow,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    gradient: primaryGradient,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.home_rounded, size: 50, color: whiteColor),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Room Title',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: charcoalBlack,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on, size: 14, color: charcoalBlack.withOpacity(0.6)),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'Location',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: charcoalBlack.withOpacity(0.6),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '\$500/month',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: primaryColor,
-                            ),
-                          ),
-                          Icon(Icons.favorite_border, color: redColor, size: 20),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            child: Center(
+              child: Text(
+                'No rooms available yet',
+                style: TextStyle(color: charcoalBlack.withOpacity(0.6)),
+              ),
             ),
           );
-        },
-      ),
+        }
+
+        final rooms = snapshot.data!;
+
+        return SizedBox(
+          height: 230,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: rooms.length,
+            itemBuilder: (context, index) {
+              final room = rooms[index];
+              final title = room['title'] ?? 'Untitled Property';
+              final city = room['city'] ?? 'Unknown';
+              final price = room['price_per_month'] ?? 0;
+              final imageUrl = room['cover_image_url'];
+
+              return Container(
+                width: 280,
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  color: whiteColor,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: softShadow,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 120,
+                      decoration: BoxDecoration(
+                        gradient: imageUrl != null ? null : primaryGradient,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                        image: imageUrl != null
+                            ? DecorationImage(
+                                image: NetworkImage(imageUrl),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: imageUrl == null
+                          ? const Center(
+                              child: Icon(Icons.home_rounded, size: 50, color: whiteColor),
+                            )
+                          : null,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: charcoalBlack,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.location_on, size: 14, color: charcoalBlack.withOpacity(0.6)),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  city,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: charcoalBlack.withOpacity(0.6),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '\$${price.toStringAsFixed(0)}/month',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: primaryColor,
+                                ),
+                              ),
+                              const Icon(Icons.favorite_border, color: redColor, size: 20),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
   Widget _buildRecentSearches() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: whiteColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: softShadow,
-      ),
-      child: Column(
-        children: [
-          _buildSearchItem('1 Bedroom near Campus', '3 days ago'),
-          const Divider(height: 24),
-          _buildSearchItem('Shared Room in City Center', '1 week ago'),
-          const Divider(height: 24),
-          _buildSearchItem('Studio Apartment', '2 weeks ago'),
-        ],
-      ),
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+
+    if (userId == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Supabase.instance.client
+          .from('viewing_history')
+          .stream(primaryKey: ['id'])
+          .eq('student_id', userId)
+          .order('viewed_at', ascending: false)
+          .limit(3),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: whiteColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: softShadow,
+            ),
+            child: Center(
+              child: Text(
+                'No recent searches',
+                style: TextStyle(color: charcoalBlack.withOpacity(0.6)),
+              ),
+            ),
+          );
+        }
+
+        final searches = snapshot.data!;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: whiteColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: softShadow,
+          ),
+          child: Column(
+            children: searches.asMap().entries.map((entry) {
+              final index = entry.key;
+              final search = entry.value;
+              final houseId = search['house_id'];
+              final viewedAt = search['viewed_at'];
+
+              String timeAgo = 'Recently';
+              if (viewedAt != null) {
+                final viewed = DateTime.parse(viewedAt);
+                final diff = DateTime.now().difference(viewed);
+                if (diff.inMinutes < 60) {
+                  timeAgo = '${diff.inMinutes} min ago';
+                } else if (diff.inHours < 24) {
+                  timeAgo = '${diff.inHours} hours ago';
+                } else if (diff.inDays < 7) {
+                  timeAgo = '${diff.inDays} days ago';
+                } else {
+                  timeAgo = '${(diff.inDays / 7).floor()} weeks ago';
+                }
+              }
+
+              return FutureBuilder<Map<String, dynamic>?>(
+                future: _getHouseDetails(houseId),
+                builder: (context, houseSnapshot) {
+                  final houseTitle = houseSnapshot.data?['title'] ?? 'Property';
+
+                  return Column(
+                    children: [
+                      if (index > 0) const Divider(height: 24),
+                      _buildSearchItem(houseTitle, timeAgo),
+                    ],
+                  );
+                },
+              );
+            }).toList(),
+          ),
+        );
+      },
     );
+  }
+
+  Future<Map<String, dynamic>?> _getHouseDetails(String houseId) async {
+    try {
+      final response = await Supabase.instance.client
+          .from('houses')
+          .select('title, city')
+          .eq('id', houseId)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      return null;
+    }
   }
 
   Widget _buildSearchItem(String title, String time) {

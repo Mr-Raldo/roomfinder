@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../constants/theme.dart';
 import '../../controllers/auth_controller.dart';
 
@@ -134,20 +135,36 @@ class AdminHomeScreen extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _buildStatCard(
-                icon: Icons.people_rounded,
-                title: 'Total Users',
-                value: '1,234',
-                color: primaryColor,
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: Supabase.instance.client
+                    .from('user_profiles')
+                    .stream(primaryKey: ['id']),
+                builder: (context, snapshot) {
+                  final totalUsers = snapshot.hasData ? snapshot.data!.length : 0;
+                  return _buildStatCard(
+                    icon: Icons.people_rounded,
+                    title: 'Total Users',
+                    value: totalUsers.toString(),
+                    color: primaryColor,
+                  );
+                },
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildStatCard(
-                icon: Icons.home_work_rounded,
-                title: 'Total Listings',
-                value: '456',
-                color: accentColor,
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: Supabase.instance.client
+                    .from('houses')
+                    .stream(primaryKey: ['id']),
+                builder: (context, snapshot) {
+                  final totalListings = snapshot.hasData ? snapshot.data!.length : 0;
+                  return _buildStatCard(
+                    icon: Icons.home_work_rounded,
+                    title: 'Total Listings',
+                    value: totalListings.toString(),
+                    color: accentColor,
+                  );
+                },
               ),
             ),
           ],
@@ -156,20 +173,38 @@ class AdminHomeScreen extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _buildStatCard(
-                icon: Icons.pending_actions_rounded,
-                title: 'Pending Approvals',
-                value: '23',
-                color: yellowColor,
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: Supabase.instance.client
+                    .from('houses')
+                    .stream(primaryKey: ['id'])
+                    .eq('is_active', false),
+                builder: (context, snapshot) {
+                  final pendingApprovals = snapshot.hasData ? snapshot.data!.length : 0;
+                  return _buildStatCard(
+                    icon: Icons.pending_actions_rounded,
+                    title: 'Pending Approvals',
+                    value: pendingApprovals.toString(),
+                    color: yellowColor,
+                  );
+                },
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildStatCard(
-                icon: Icons.report_problem_rounded,
-                title: 'Reports',
-                value: '8',
-                color: redColor,
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: Supabase.instance.client
+                    .from('reports')
+                    .stream(primaryKey: ['id'])
+                    .eq('status', 'pending'),
+                builder: (context, snapshot) {
+                  final reports = snapshot.hasData ? snapshot.data!.length : 0;
+                  return _buildStatCard(
+                    icon: Icons.report_problem_rounded,
+                    title: 'Reports',
+                    value: reports.toString(),
+                    color: redColor,
+                  );
+                },
               ),
             ),
           ],
@@ -361,40 +396,131 @@ class AdminHomeScreen extends StatelessWidget {
   }
 
   Widget _buildRecentActivities() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: whiteColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: softShadow,
-      ),
-      child: Column(
-        children: [
-          _buildActivityItem(
-            Icons.person_add_rounded,
-            'New user registered',
-            'John Doe joined as Student',
-            '5 min ago',
-            primaryColor,
-          ),
-          const Divider(height: 24),
-          _buildActivityItem(
-            Icons.home_rounded,
-            'New listing added',
-            'Studio Apartment in City Center',
-            '1 hour ago',
-            accentColor,
-          ),
-          const Divider(height: 24),
-          _buildActivityItem(
-            Icons.flag_rounded,
-            'New report submitted',
-            'Inappropriate listing reported',
-            '3 hours ago',
-            redColor,
-          ),
-        ],
-      ),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Supabase.instance.client
+          .from('user_profiles')
+          .stream(primaryKey: ['id'])
+          .order('created_at', ascending: false)
+          .limit(5),
+      builder: (context, userSnapshot) {
+        return StreamBuilder<List<Map<String, dynamic>>>(
+          stream: Supabase.instance.client
+              .from('houses')
+              .stream(primaryKey: ['id'])
+              .order('created_at', ascending: false)
+              .limit(5),
+          builder: (context, houseSnapshot) {
+            final List<Map<String, dynamic>> activities = [];
+
+            if (userSnapshot.hasData) {
+              for (var user in userSnapshot.data!) {
+                activities.add({
+                  'type': 'user',
+                  'data': user,
+                  'timestamp': user['created_at'],
+                });
+              }
+            }
+
+            if (houseSnapshot.hasData) {
+              for (var house in houseSnapshot.data!) {
+                activities.add({
+                  'type': 'house',
+                  'data': house,
+                  'timestamp': house['created_at'],
+                });
+              }
+            }
+
+            activities.sort((a, b) {
+              final aTime = DateTime.parse(a['timestamp'] ?? DateTime.now().toIso8601String());
+              final bTime = DateTime.parse(b['timestamp'] ?? DateTime.now().toIso8601String());
+              return bTime.compareTo(aTime);
+            });
+
+            final recentActivities = activities.take(3).toList();
+
+            if (recentActivities.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: whiteColor,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: softShadow,
+                ),
+                child: Center(
+                  child: Text(
+                    'No recent activities',
+                    style: TextStyle(color: charcoalBlack.withOpacity(0.6)),
+                  ),
+                ),
+              );
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: whiteColor,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: softShadow,
+              ),
+              child: Column(
+                children: recentActivities.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final activity = entry.value;
+                  final type = activity['type'];
+                  final data = activity['data'];
+                  final timestamp = activity['timestamp'];
+
+                  String timeAgo = 'Recently';
+                  if (timestamp != null) {
+                    final created = DateTime.parse(timestamp);
+                    final diff = DateTime.now().difference(created);
+                    if (diff.inMinutes < 60) {
+                      timeAgo = '${diff.inMinutes} min ago';
+                    } else if (diff.inHours < 24) {
+                      timeAgo = '${diff.inHours} hours ago';
+                    } else {
+                      timeAgo = '${diff.inDays} days ago';
+                    }
+                  }
+
+                  if (type == 'user') {
+                    final firstName = data['first_name'] ?? 'User';
+                    final accountType = data['account_type'] ?? 'Student';
+                    return Column(
+                      children: [
+                        if (index > 0) const Divider(height: 24),
+                        _buildActivityItem(
+                          Icons.person_add_rounded,
+                          'New user registered',
+                          '$firstName joined as $accountType',
+                          timeAgo,
+                          primaryColor,
+                        ),
+                      ],
+                    );
+                  } else {
+                    final title = data['title'] ?? 'Property';
+                    return Column(
+                      children: [
+                        if (index > 0) const Divider(height: 24),
+                        _buildActivityItem(
+                          Icons.home_rounded,
+                          'New listing added',
+                          title,
+                          timeAgo,
+                          accentColor,
+                        ),
+                      ],
+                    );
+                  }
+                }).toList(),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -452,24 +578,50 @@ class AdminHomeScreen extends StatelessWidget {
   }
 
   Widget _buildSystemStatus() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: whiteColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: softShadow,
-      ),
-      child: Column(
-        children: [
-          _buildStatusItem('Server Status', 'Online', accentColor),
-          const Divider(height: 20),
-          _buildStatusItem('Database', 'Healthy', accentColor),
-          const Divider(height: 20),
-          _buildStatusItem('Storage', '78% Used', yellowColor),
-          const Divider(height: 20),
-          _buildStatusItem('API Response', '< 100ms', accentColor),
-        ],
-      ),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Supabase.instance.client
+          .from('houses')
+          .stream(primaryKey: ['id'])
+          .eq('is_active', true),
+      builder: (context, activeHousesSnapshot) {
+        return StreamBuilder<List<Map<String, dynamic>>>(
+          stream: Supabase.instance.client
+              .from('bookings')
+              .stream(primaryKey: ['id']),
+          builder: (context, bookingsSnapshot) {
+            final activeListings = activeHousesSnapshot.hasData ? activeHousesSnapshot.data!.length : 0;
+            final totalBookings = bookingsSnapshot.hasData ? bookingsSnapshot.data!.length : 0;
+
+            final pendingBookings = bookingsSnapshot.hasData
+                ? bookingsSnapshot.data!.where((b) => b['booking_status'] == 'pending').length
+                : 0;
+
+            final confirmedBookings = bookingsSnapshot.hasData
+                ? bookingsSnapshot.data!.where((b) => b['booking_status'] == 'confirmed').length
+                : 0;
+
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: whiteColor,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: softShadow,
+              ),
+              child: Column(
+                children: [
+                  _buildStatusItem('Active Listings', activeListings.toString(), accentColor),
+                  const Divider(height: 20),
+                  _buildStatusItem('Total Bookings', totalBookings.toString(), primaryColor),
+                  const Divider(height: 20),
+                  _buildStatusItem('Pending Bookings', pendingBookings.toString(), yellowColor),
+                  const Divider(height: 20),
+                  _buildStatusItem('Confirmed Bookings', confirmedBookings.toString(), accentColor),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
