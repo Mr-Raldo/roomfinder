@@ -82,11 +82,6 @@ class StudentHomeScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 _buildRecentSearches(),
 
-                const SizedBox(height: 24),
-
-                // Logout Button
-                _buildLogoutButton(authController),
-
                 const SizedBox(height: 20),
               ],
             ),
@@ -537,34 +532,6 @@ class StudentHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLogoutButton(AuthController authController) {
-    return GestureDetector(
-      onTap: () => authController.signOut(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: redColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: redColor.withOpacity(0.3)),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.logout, color: redColor, size: 20),
-            SizedBox(width: 8),
-            Text(
-              'Logout',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: redColor,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildBottomNav() {
     return Container(

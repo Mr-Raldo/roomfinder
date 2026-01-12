@@ -63,14 +63,14 @@ class LandlordProfileScreen extends StatelessWidget {
   Widget _buildProfileHeader(String name, String email) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [accentColor, Color(0xFF66BB6A), primaryColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: accentColor.withOpacity(0.3),
@@ -79,19 +79,19 @@ class LandlordProfileScreen extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
           Container(
-            width: 120,
-            height: 120,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               color: whiteColor,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
                   color: blackColor.withOpacity(0.2),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -99,54 +99,49 @@ class LandlordProfileScreen extends StatelessWidget {
               child: Text(
                 name[0].toUpperCase(),
                 style: const TextStyle(
-                  fontSize: 56,
+                  fontSize: 28,
                   fontWeight: FontWeight.w700,
                   color: accentColor,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          Text(
-            name,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              color: whiteColor,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            email,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-              color: whiteColor.withOpacity(0.9),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(
-              color: whiteColor.withOpacity(0.25),
-              borderRadius: BorderRadius.circular(25),
-              border: Border.all(
-                color: whiteColor.withOpacity(0.3),
-                width: 1.5,
-              ),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.verified_user, color: whiteColor, size: 18),
-                SizedBox(width: 8),
                 Text(
-                  'Verified Landlord',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                  name,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
                     color: whiteColor,
                   ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: whiteColor.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: whiteColor.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.verified_user, color: whiteColor, size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        'Verified Landlord',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: whiteColor,
+                        ),
                 ),
               ],
             ),
